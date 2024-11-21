@@ -852,6 +852,7 @@ _import_structure = {
     "models.xlm_roberta": ["XLMRobertaConfig"],
     "models.xlm_roberta_xl": ["XLMRobertaXLConfig"],
     "models.xlnet": ["XLNetConfig"],
+    "models.xlstm": ["xLSTMConfig"],
     "models.xmod": ["XmodConfig"],
     "models.yolos": ["YolosConfig"],
     "models.yoso": ["YosoConfig"],
@@ -2662,6 +2663,13 @@ else:
             "Mamba2ForCausalLM",
             "Mamba2Model",
             "Mamba2PreTrainedModel",
+        ]
+    )
+    _import_structure["models.xlstm"].extend(
+        [
+            "xLSTMForCausalLM",
+            "xLSTMModel",
+            "xLSTMPreTrainedModel",
         ]
     )
     _import_structure["models.marian"].extend(
@@ -8192,6 +8200,9 @@ if TYPE_CHECKING:
             XLNetModel,
             XLNetPreTrainedModel,
             load_tf_weights_in_xlnet,
+        )
+        from .models.xlstm import (
+            xLSTMModel, xLSTMConfig, xLSTMPreTrainedModel, xLSTMForCausalLM
         )
         from .models.xmod import (
             XmodForCausalLM,
