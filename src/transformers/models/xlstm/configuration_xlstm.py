@@ -105,6 +105,7 @@ class xLSTMConfig(PretrainedConfig):
         pad_token_id=1,
         bos_token_id=0,
         eos_token_id=2,
+        force_bos_token_insert: bool = True,
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -135,6 +136,7 @@ class xLSTMConfig(PretrainedConfig):
         # adapted as it is a runtime config
         self.return_last_states = True
         self.use_cache = use_cache
+        self.force_bos_token_insert = force_bos_token_insert
 
         super().__init__(
             bos_token_id=bos_token_id,

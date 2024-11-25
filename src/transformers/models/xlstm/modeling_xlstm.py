@@ -77,6 +77,7 @@ class xLSTMCache:
             )
             for layer in range(config.num_blocks)
         }
+        self.rnn_state_initial = True
 
     def reset(self):
         self.rnn_state = {
@@ -88,6 +89,7 @@ class xLSTMCache:
             )
             for layer in self.rnn_state
         }
+        self.rnn_state_initial = True
 
 
 class xLSTMPreTrainedModel(PreTrainedModel):
@@ -261,6 +263,8 @@ class xLSTMModel(xLSTMPreTrainedModel):
         attention_mask: Optional[torch.Tensor] = None,
         **kwargs,
     ) -> Union[Tuple, xLSTMOutput]:
+        # print("input_ids", input_ids)
+
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
@@ -307,6 +311,7 @@ class xLSTMModel(xLSTMPreTrainedModel):
                     else:
                         local_rnn_state = rnn_state[state_idx]
                     cache_params.rnn_state[i][state_idx].copy_(local_rnn_state)
+                cache_params.rnn_state_initial = False
 
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
@@ -442,6 +447,14 @@ class xLSTMForCausalLM(xLSTMPreTrainedModel, GenerationMixin):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
+        inserted_bos_token = False
+        if (cache_params is None or cache_params.rnn_state_initial) and self.config.force_bos_token_insert:
+            if bool(torch.all(input_ids[0, 0] != self.config.bos_token_id).cpu()):
+                input_ids = torch.cat(
+                    [self.config.bos_token_id + input_ids.new_zeros([input_ids.shape[0], 1]), input_ids], dim=1
+                )
+                inserted_bos_token = True
+
         xlstm_outputs = self.backbone(
             input_ids,
             cache_params=cache_params,
@@ -453,6 +466,10 @@ class xLSTMForCausalLM(xLSTMPreTrainedModel, GenerationMixin):
             attention_mask=attention_mask,
         )
         hidden_states = xlstm_outputs[0]
+
+        if inserted_bos_token:
+            # print("Inserted BOS token.")
+            hidden_states = hidden_states[:, 1:]
 
         logits = self.lm_head(hidden_states.to(self.lm_head.weight.dtype)).float()
 
