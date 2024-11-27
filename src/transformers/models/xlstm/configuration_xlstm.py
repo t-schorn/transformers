@@ -20,7 +20,15 @@ from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
 try:
-    from mlstm_simple.model import mLSTMConfig, round_up_to_next_multiple_of
+    from mlstm_simple.model import (
+        mLSTMConfig,
+        round_up_to_next_multiple_of,
+        ChunkwiseKernelType,
+        SequenceKernelType,
+        StepKernelType,
+        BackendModeType,
+        DtypeType,
+    )
 except ImportError:
     # TODO This was only added for testing, since mlstm_torch_simple is not installable yet
     import sys
@@ -72,39 +80,37 @@ class xLSTMConfig(PretrainedConfig):
         num_blocks: int = 32,
         num_heads: int = 8,
         use_bias: bool = False,
+        norm_reduction_force_float32: bool = True,
         tie_word_embeddings: bool = False,
-        add_embedding_dropout: bool = False,
-        add_post_blocks_norm: bool = True,
+        add_out_norm: bool = True,
         norm_eps: float = 1e-6,
-        # init_distribution: "normal",
-        # init_distribution_embed: "normal",
-        # output_init_fn: str = "wang",
-        # lm_head_dtype: "bfloat16",
-        add_post_norm: bool = False,
+        # mlstm_layer
         qk_dim_factor: float = 0.5,
         v_dim_factor: float = 1.0,
         mlstm_round_up_to_multiple_of: int = 64,
-        # gate_dtype: float32,
-        # backend: triton_kernels,
-        # backend_name: "max_triton_noslice",
-        igate_bias_init_range: float = -10.0,
-        add_qk_norm: bool = False,
-        # cell_norm_type: rmsnorm,
-        cell_norm_eps: float = 1e-6,
-        gate_soft_cap: float = 15.0,
-        norm_reduction_force_float32: bool = True,
-        output_logit_soft_cap: float = 30,
-        # reset_at_document_boundaries: False,
-        forward_backend_name: str = "chunkwise--triton_xl_chunk",
-        step_backend_name: str = "triton_fused",
-        add_forward_backend_padding: bool = False,
+        # mlstm backend
+        chunkwise_kernel: ChunkwiseKernelType = "chunkwise--native_autograd",
+        sequence_kernel: SequenceKernelType = "native_sequence__native",
+        step_kernel: StepKernelType = "native",
+        # nedded to enable generation
+        mode: BackendModeType = "inference",
+        chunk_size: int = 64,
+        # needed to be true for generation
+        return_last_states: bool = True,
+        autocast_kernel_dtype: DtypeType = "bfloat16",
+        eps: float = 1e-6,
+        inference_state_dtype: DtypeType = "float32",
+        # feedforward
         ffn_proj_factor: float = 2.667,
         ffn_round_up_to_multiple_of: int = 64,
-        return_last_states: bool = True,
+        # capping
+        gate_soft_cap: float = 15.0,
+        output_logit_soft_cap: float = 30.0,
+        # HF interface
         use_cache: bool = True,
-        pad_token_id=1,
-        bos_token_id=0,
-        eos_token_id=2,
+        pad_token_id: int = 1,
+        bos_token_id: int = 0,
+        eos_token_id: int = 2,
         force_bos_token_insert: bool = True,
         **kwargs,
     ):
@@ -113,29 +119,34 @@ class xLSTMConfig(PretrainedConfig):
         self.num_blocks = num_blocks
         self.num_heads = num_heads
         self.use_bias = use_bias
-        self.head_dim = self.embedding_dim // self.num_heads
         self.tie_word_embeddings = tie_word_embeddings
-        self.add_embedding_dropout = add_embedding_dropout
-        self.add_post_blocks_norm = add_post_blocks_norm
+        self.add_out_norm = add_out_norm
         self.norm_eps = norm_eps
-        self.output_logit_soft_cap = output_logit_soft_cap
-        self.add_post_norm = add_post_norm
+        self.norm_reduction_force_float32 = norm_reduction_force_float32
+        # mlstm_layer
         self.qk_dim_factor = qk_dim_factor
         self.v_dim_factor = v_dim_factor
         self.mlstm_round_up_to_multiple_of = mlstm_round_up_to_multiple_of
-        self.igate_bias_init_range = igate_bias_init_range
-        self.add_qk_norm = add_qk_norm
-        self.cell_norm_eps = cell_norm_eps
-        self.gate_soft_cap = gate_soft_cap
-        self.norm_reduction_force_float32 = norm_reduction_force_float32
-        self.forward_backend_name = forward_backend_name
-        self.step_backend_name = step_backend_name
-        self.add_forward_backend_padding = add_forward_backend_padding
+        # mlstm backend
+        self.chunkwise_kernel = chunkwise_kernel
+        self.sequence_kernel = sequence_kernel
+        self.step_kernel = step_kernel
+        self.mode = mode
+        self.chunk_size = chunk_size
+        self.return_last_states = return_last_states
+        self.autocast_kernel_dtype = autocast_kernel_dtype
+        self.eps = eps
+        self.inference_state_dtype = inference_state_dtype
+        # feedforward
         self.ffn_proj_factor = ffn_proj_factor
         self.ffn_round_up_to_multiple_of = ffn_round_up_to_multiple_of
-        # adapted as it is a runtime config
-        self.return_last_states = True
+        # capping
+        self.gate_soft_cap = gate_soft_cap
+        self.output_logit_soft_cap = output_logit_soft_cap
         self.use_cache = use_cache
+        self.pad_token_id = pad_token_id
+        self.bos_token_id = bos_token_id
+        self.eos_token_id = eos_token_id
         self.force_bos_token_insert = force_bos_token_insert
 
         super().__init__(
@@ -170,23 +181,32 @@ class xLSTMConfig(PretrainedConfig):
 
     def to_mlstm_block_config(self):
         return mLSTMConfig(
-            embedding_dim=self.embedding_dim,
-            num_heads=self.num_heads,
-            num_blocks=self.num_blocks,
             vocab_size=self.vocab_size,
+            embedding_dim=self.embedding_dim,
+            num_blocks=self.num_blocks,
+            num_heads=self.num_heads,
             use_bias=self.use_bias,
+            add_out_norm=self.add_out_norm,
             norm_eps=self.norm_eps,
             norm_reduction_force_float32=self.norm_reduction_force_float32,
+            # mlstm_layer
             qk_dim_factor=self.qk_dim_factor,
             v_dim_factor=self.v_dim_factor,
             mlstm_round_up_to_multiple_of=self.mlstm_round_up_to_multiple_of,
-            # this was changed as it is a runtime config
-            return_last_states=True,
-            forward_backend_name=self.forward_backend_name,
-            step_backend_name=self.step_backend_name,
-            add_forward_backend_padding=self.add_forward_backend_padding,
+            # mlstm backend
+            chunkwise_kernel=self.chunkwise_kernel,
+            sequence_kernel=self.sequence_kernel,
+            step_kernel=self.step_kernel,
+            mode=self.mode,
+            chunk_size=self.chunk_size,
+            return_last_states=self.return_last_states,
+            autocast_kernel_dtype=self.autocast_kernel_dtype,
+            eps=self.eps,
+            inference_state_dtype=self.inference_state_dtype,
+            # feedforward
             ffn_proj_factor=self.ffn_proj_factor,
             ffn_round_up_to_multiple_of=self.ffn_round_up_to_multiple_of,
+            # capping
             gate_soft_cap=self.gate_soft_cap,
             output_logit_soft_cap=self.output_logit_soft_cap,
         )

@@ -1880,7 +1880,6 @@ class xLSTMCache:
                 ),
                 torch.zeros([batch_size, config.num_heads, config.qk_head_dim], dtype=dtype, device=device),
                 torch.zeros([batch_size, config.num_heads, 1], dtype=dtype, device=device),
-                # torch.full([batch_size, config.num_heads, 1], -10000.0, dtype=dtype, device=device),
             )
             for layer in range(config.num_blocks)
         }
@@ -1891,7 +1890,6 @@ class xLSTMCache:
                 torch.zeros_like(self.rnn_state[layer][0]),
                 torch.zeros_like(self.rnn_state[layer][1]),
                 torch.zeros_like(self.rnn_state[layer][2]),
-                # -10000.0 * torch.ones_like(self.rnn_state[layer][2]),
             )
             for layer in self.rnn_state
         }

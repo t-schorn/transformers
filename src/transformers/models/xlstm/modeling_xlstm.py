@@ -27,7 +27,7 @@ try:
         RMSNorm,
         mLSTMConfig,
         mLSTMStateType,
-        soft_cap_logits,
+        soft_cap,
     )
 except:
     import sys
@@ -39,7 +39,7 @@ except:
         RMSNorm,
         mLSTMConfig,
         mLSTMStateType,
-        soft_cap_logits,
+        soft_cap,
     )
     # raise ImportError("Need mlstm_simple_torch to be installed")
 
@@ -73,7 +73,6 @@ class xLSTMCache:
                 ),
                 torch.zeros([batch_size, config.num_heads, config.qk_head_dim], dtype=dtype, device=device),
                 torch.zeros([batch_size, config.num_heads, 1], dtype=dtype, device=device),
-                # torch.full([batch_size, config.num_heads, 1], -10000.0, dtype=dtype, device=device),
             )
             for layer in range(config.num_blocks)
         }
@@ -85,7 +84,6 @@ class xLSTMCache:
                 torch.zeros_like(self.rnn_state[layer][0]),
                 torch.zeros_like(self.rnn_state[layer][1]),
                 torch.zeros_like(self.rnn_state[layer][2]),
-                # -10000.0 * torch.ones_like(self.rnn_state[layer][2]),
             )
             for layer in self.rnn_state
         }
@@ -302,14 +300,10 @@ class xLSTMModel(xLSTMPreTrainedModel):
                     hidden_states,
                     state=cache_params.rnn_state[i] if cache_params is not None else None,
                 )
-            # TODO update
             if cache_params:
                 for state_idx in range(len(cache_params.rnn_state[i])):
                     local_rnn_state = rnn_state[state_idx]
-                    if state_idx == 2 and len(rnn_state[state_idx].shape) == 2:
-                        local_rnn_state = rnn_state[state_idx].unsqueeze(dim=2)
-                    else:
-                        local_rnn_state = rnn_state[state_idx]
+                    local_rnn_state = rnn_state[state_idx]
                     cache_params.rnn_state[i][state_idx].copy_(local_rnn_state)
                 cache_params.rnn_state_initial = False
 
@@ -473,7 +467,7 @@ class xLSTMForCausalLM(xLSTMPreTrainedModel, GenerationMixin):
 
         logits = self.lm_head(hidden_states.to(self.lm_head.weight.dtype)).float()
 
-        logits = soft_cap_logits(logits, self.config.output_logit_soft_cap)
+        logits = soft_cap(logits, self.config.output_logit_soft_cap)
 
         loss = None
         if labels is not None:
