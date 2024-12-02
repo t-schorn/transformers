@@ -21,27 +21,26 @@ from ...utils import (
 )
 
 
-try:
-    from mlstm_simple_torch.mlstm_simple.model import (
-        mLSTMBlock,
-        RMSNorm,
-        mLSTMConfig,
-        mLSTMStateType,
-        soft_cap,
-    )
-except:
-    import sys
-    import os
+from mlstm_simple.model import (
+    mLSTMBlock,
+    RMSNorm,
+    mLSTMConfig,
+    mLSTMStateType,
+    soft_cap,
+)
 
-    sys.path.append(os.path.split(os.path.abspath(__file__))[0] + "/../../../../mlstm_simple_torch")
-    from mlstm_simple.model import (
-        mLSTMBlock,
-        RMSNorm,
-        mLSTMConfig,
-        mLSTMStateType,
-        soft_cap,
-    )
-    # raise ImportError("Need mlstm_simple_torch to be installed")
+# import sys
+# import os
+
+# # sys.path.append(os.path.split(os.path.abspath(__file__))[0] + "/../../../../mlstm_simple_torch")
+# from mlstm_simple.model import (
+#     mLSTMBlock,
+#     RMSNorm,
+#     mLSTMConfig,
+#     mLSTMStateType,
+#     soft_cap,
+# )
+# raise ImportError("Need mlstm_simple_torch to be installed")
 
 _CHECKPOINT_FOR_DOC = "NX-AI/xLSTM-7B"
 _CONFIG_FOR_DOC = "xLSTMConfig"
@@ -231,11 +230,12 @@ class xLSTMModel(xLSTMPreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
-    def _init_weights(self, module):
-        if hasattr(module, "weight"):
-            nn.init.zeros_(module.weight)
-        else:
-            print("Ignoring init", module)
+    # why is this here?
+    # def _init_weights(self, module):
+    #     if hasattr(module, "weight"):
+    #         nn.init.zeros_(module.weight)
+    #     else:
+    #         print("Ignoring init", module)
 
     def get_input_embeddings(self):
         return self.embeddings
