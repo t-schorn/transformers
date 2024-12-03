@@ -749,6 +749,7 @@ def is_torch_compile_available():
 def is_torchdynamo_compiling():
     if not is_torch_available():
         return False
+    return True
 
     # Importing torch._dynamo causes issues with PyTorch profiler (https://github.com/pytorch/pytorch/issues/130622)
     # hence rather relying on `torch.compiler.is_compiling()` when possible (torch>=2.3)

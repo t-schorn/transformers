@@ -32,6 +32,7 @@ from ...utils import (
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
+    is_torchdynamo_compiling,
     logging,
 )
 from ...utils.import_utils import is_causal_conv1d_available, is_mamba_ssm_available, is_mambapy_available
@@ -201,7 +202,7 @@ class FalconMambaMixer(nn.Module):
 
             # 2. Convolution sequence transformation
             conv_weights = self.conv1d.weight.view(self.conv1d.weight.size(0), self.conv1d.weight.size(2))
-            if cache_params is not None and cache_position[0] > 0:
+            if cache_params is not None and (is_torchdynamo_compiling() or cache_position[0] > 0):
                 hidden_states = causal_conv1d_update(
                     hidden_states.squeeze(-1),
                     cache_params.conv_states[self.layer_idx],
@@ -244,7 +245,7 @@ class FalconMambaMixer(nn.Module):
             A = -torch.exp(self.A_log.float())
             # 3.c perform the recurrence y ← SSM(A, B, C)(x)
             time_proj_bias = self.dt_proj.bias.float() if hasattr(self.dt_proj, "bias") else None
-            if cache_params is not None and cache_position[0] > 0:
+            if cache_params is not None and (is_torchdynamo_compiling() or cache_position[0] > 0):
                 scan_outputs = selective_state_update(
                     cache_params.ssm_states[self.layer_idx],
                     hidden_states[..., 0],
@@ -777,7 +778,7 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
                     "`model.generate`, you are responsible for passing in a valid `cache_position` if "
                     "you are calling `prepare_inputs_for_generation` directly with `use_cache=True`"
                 )
-            if cache_position[0] > 0:
+            if (is_torchdynamo_compiling() or cache_position[0] > 0):
                 input_ids = input_ids[:, -1].unsqueeze(-1)
 
                 if attention_mask is not None:
