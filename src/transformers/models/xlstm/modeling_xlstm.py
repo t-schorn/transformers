@@ -395,10 +395,13 @@ class xLSTMForCausalLM(xLSTMPreTrainedModel, GenerationMixin):
             # Thus, the cache_params state is assumed to be the state before the last token
             # (lastly generated token), and all previous tokens are already ingested.
             # This should as well support generation from scratch with the [BOS] token inserted first.
-            if is_torchdynamo_compiling() or cache_position[0] > 0:
+
+            # if is_torchdynamo_compiling() or cache_position[0] > 0:
+            if cache_params is not None:
                 input_ids = input_ids[:, -1:]
                 if inputs_embeds is not None:
                     inputs_embeds = inputs_embeds[:, -1:]
+        
         attention_mask = None
 
         if inputs_embeds is not None and cache_params is None:
