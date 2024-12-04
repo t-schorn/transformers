@@ -988,7 +988,7 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, GenerationMixin):
                     "you are calling `prepare_inputs_for_generation` directly with `use_cache=True`"
                 )
             # how do we detect that we are in decoding without cache?
-            if cache_position[0] > 0:
+            if len(cache_position) == 1:  # cache_position[0] > 0:
                 input_ids = input_ids[:, -1][..., None]
                 attention_mask = attention_mask[:, -1][..., None]
             else:
