@@ -749,19 +749,19 @@ def is_torch_compile_available():
 def is_torchdynamo_compiling():
     if not is_torch_available():
         return False
-    return True
+
+    import torch
+    compiling_cuda_graph = torch.cuda.graph.default_capture_stream is not None
 
     # Importing torch._dynamo causes issues with PyTorch profiler (https://github.com/pytorch/pytorch/issues/130622)
     # hence rather relying on `torch.compiler.is_compiling()` when possible (torch>=2.3)
     try:
-        import torch
-
-        return torch.compiler.is_compiling()
+        return torch.compiler.is_compiling() or compiling_cuda_graph
     except Exception:
         try:
             import torch._dynamo as dynamo  # noqa: F401
 
-            return dynamo.is_compiling()
+            return dynamo.is_compiling() or compiling_cuda_graph
         except Exception:
             return False
 
