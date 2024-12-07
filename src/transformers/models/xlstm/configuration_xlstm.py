@@ -14,15 +14,13 @@
 # limitations under the License.
 """XLSTM configuration"""
 
-import math
-
-from mlstm_simple.model import (
+from xlstm.xlstm_large.model import (
     BackendModeType,
     ChunkwiseKernelType,
     DtypeType,
     SequenceKernelType,
     StepKernelType,
-    mLSTMConfig,
+    xLSTMLargeConfig,
     round_up_to_next_multiple_of,
 )
 
@@ -78,7 +76,6 @@ class xLSTMConfig(PretrainedConfig):
         # mlstm_layer
         qk_dim_factor: float = 0.5,
         v_dim_factor: float = 1.0,
-        mlstm_round_up_to_multiple_of: int = 64,
         # mlstm backend
         chunkwise_kernel: ChunkwiseKernelType = "chunkwise--native_autograd",
         sequence_kernel: SequenceKernelType = "native_sequence__native",
@@ -117,7 +114,6 @@ class xLSTMConfig(PretrainedConfig):
         # mlstm_layer
         self.qk_dim_factor = qk_dim_factor
         self.v_dim_factor = v_dim_factor
-        self.mlstm_round_up_to_multiple_of = mlstm_round_up_to_multiple_of
         # mlstm backend
         self.chunkwise_kernel = chunkwise_kernel
         self.sequence_kernel = sequence_kernel
@@ -170,8 +166,8 @@ class xLSTMConfig(PretrainedConfig):
     def v_head_dim(self):
         return self.v_dim // self.num_heads
 
-    def to_mlstm_block_config(self):
-        return mLSTMConfig(
+    def to_xlstm_block_config(self):
+        return xLSTMLargeConfig(
             vocab_size=self.vocab_size,
             embedding_dim=self.embedding_dim,
             num_blocks=self.num_blocks,
@@ -183,7 +179,6 @@ class xLSTMConfig(PretrainedConfig):
             # mlstm_layer
             qk_dim_factor=self.qk_dim_factor,
             v_dim_factor=self.v_dim_factor,
-            mlstm_round_up_to_multiple_of=self.mlstm_round_up_to_multiple_of,
             # mlstm backend
             chunkwise_kernel=self.chunkwise_kernel,
             sequence_kernel=self.sequence_kernel,

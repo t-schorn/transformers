@@ -21,28 +21,15 @@ from ...utils import (
 )
 
 
-from mlstm_simple.model import (
+from xlstm.xlstm_large.model import (
     mLSTMBlock,
     RMSNorm,
-    mLSTMConfig,
+    xLSTMLargeConfig,
     mLSTMStateType,
     soft_cap,
 )
 
-# import sys
-# import os
-
-# # sys.path.append(os.path.split(os.path.abspath(__file__))[0] + "/../../../../mlstm_simple_torch")
-# from mlstm_simple.model import (
-#     mLSTMBlock,
-#     RMSNorm,
-#     mLSTMConfig,
-#     mLSTMStateType,
-#     soft_cap,
-# )
-# raise ImportError("Need mlstm_simple_torch to be installed")
-
-_CHECKPOINT_FOR_DOC = "NX-AI/xLSTM-7B"
+_CHECKPOINT_FOR_DOC = "NX-AI/xLSTM-7b"
 _CONFIG_FOR_DOC = "xLSTMConfig"
 
 
@@ -223,7 +210,7 @@ class xLSTMModel(xLSTMPreTrainedModel):
         # TODO remove - test if embeddings are actually loaded
         # with torch.no_grad():
         #     self.embedding.weight -= self.embedding.weight
-        self.blocks = nn.ModuleList([mLSTMBlock(config.to_mlstm_block_config()) for _ in range(config.num_blocks)])
+        self.blocks = nn.ModuleList([mLSTMBlock(config.to_xlstm_block_config()) for _ in range(config.num_blocks)])
 
         self.gradient_checkpointing = False
         self.out_norm = RMSNorm(config.embedding_dim, eps=config.norm_eps)
