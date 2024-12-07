@@ -97,6 +97,8 @@ class xLSTMConfig(PretrainedConfig):
         # capping
         gate_soft_cap: float = 15.0,
         output_logit_soft_cap: float = 30.0,
+        # weights
+        weight_mode: WeightModeType = "single",
         # HF interface
         use_cache: bool = True,
         pad_token_id: int = 1,
@@ -134,6 +136,8 @@ class xLSTMConfig(PretrainedConfig):
         # capping
         self.gate_soft_cap = gate_soft_cap
         self.output_logit_soft_cap = output_logit_soft_cap
+        self.weight_mode = weight_mode
+
         self.use_cache = use_cache
         self.pad_token_id = pad_token_id
         self.bos_token_id = bos_token_id
@@ -200,4 +204,5 @@ class xLSTMConfig(PretrainedConfig):
             # capping
             gate_soft_cap=self.gate_soft_cap,
             output_logit_soft_cap=self.output_logit_soft_cap,
+            weight_mode=self.weight_mode,
         )

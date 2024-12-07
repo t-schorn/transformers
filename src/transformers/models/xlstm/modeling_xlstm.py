@@ -2,23 +2,24 @@
 
 import math
 from dataclasses import dataclass
+from typing import Dict, Optional, Tuple, Union
+
 import torch
+import torch.utils.checkpoint
 from torch import nn
 from torch.nn import CrossEntropyLoss
-import torch.utils.checkpoint
-from typing import Optional, Tuple, Dict, Union
 
-from ...modeling_utils import PreTrainedModel
 from ...generation import GenerationMixin
-from .configuration_xlstm import xLSTMConfig
-
+from ...modeling_utils import PreTrainedModel
 from ...utils import (
     ModelOutput,
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
+    is_torchdynamo_compiling,
     logging,
 )
+from .configuration_xlstm import xLSTMConfig
 
 
 from mlstm_simple.model import (
@@ -28,19 +29,6 @@ from mlstm_simple.model import (
     mLSTMStateType,
     soft_cap,
 )
-
-# import sys
-# import os
-
-# # sys.path.append(os.path.split(os.path.abspath(__file__))[0] + "/../../../../mlstm_simple_torch")
-# from mlstm_simple.model import (
-#     mLSTMBlock,
-#     RMSNorm,
-#     mLSTMConfig,
-#     mLSTMStateType,
-#     soft_cap,
-# )
-# raise ImportError("Need mlstm_simple_torch to be installed")
 
 _CHECKPOINT_FOR_DOC = "NX-AI/xLSTM-7B"
 _CONFIG_FOR_DOC = "xLSTMConfig"
@@ -62,7 +50,7 @@ class xLSTMCache:
     def __init__(
         self, config: xLSTMConfig, batch_size: int, dtype: torch.dtype = torch.bfloat16, device: Optional[str] = None
     ):
-        self.seqlen_offset = 0
+        self.seqlen_offset = torch.tensor(0, dtype=torch.int64, device=device)
         self.dtype = dtype
         self.config = config
         self.rnn_state: mLSTMStateType = {
@@ -230,12 +218,9 @@ class xLSTMModel(xLSTMPreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
-    # why is this here?
-    # def _init_weights(self, module):
-    #     if hasattr(module, "weight"):
-    #         nn.init.zeros_(module.weight)
-    #     else:
-    #         print("Ignoring init", module)
+    def _init_weights(self, module):
+        # Not implemented yet
+        pass
 
     def get_input_embeddings(self):
         return self.embeddings
@@ -393,10 +378,13 @@ class xLSTMForCausalLM(xLSTMPreTrainedModel, GenerationMixin):
             # Thus, the cache_params state is assumed to be the state before the last token
             # (lastly generated token), and all previous tokens are already ingested.
             # This should as well support generation from scratch with the [BOS] token inserted first.
-            if cache_position[0] > 0:
+
+            # if is_torchdynamo_compiling() or cache_position[0] > 0:
+            if cache_params is not None:
                 input_ids = input_ids[:, -1:]
                 if inputs_embeds is not None:
                     inputs_embeds = inputs_embeds[:, -1:]
+
         attention_mask = None
 
         if inputs_embeds is not None and cache_params is None:
@@ -443,11 +431,12 @@ class xLSTMForCausalLM(xLSTMPreTrainedModel, GenerationMixin):
 
         inserted_bos_token = False
         if (cache_params is None or cache_params.rnn_state_initial) and self.config.force_bos_token_insert:
-            if bool(torch.all(input_ids[0, 0] != self.config.bos_token_id).cpu()):
-                input_ids = torch.cat(
-                    [self.config.bos_token_id + input_ids.new_zeros([input_ids.shape[0], 1]), input_ids], dim=1
-                )
-                inserted_bos_token = True
+            if not is_torchdynamo_compiling():
+                if bool(torch.all(input_ids[0, 0] != self.config.bos_token_id).cpu()):
+                    input_ids = torch.cat(
+                        [self.config.bos_token_id + input_ids.new_zeros([input_ids.shape[0], 1]), input_ids], dim=1
+                    )
+                    inserted_bos_token = True
 
         xlstm_outputs = self.backbone(
             input_ids,
