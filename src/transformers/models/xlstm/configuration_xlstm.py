@@ -16,28 +16,18 @@
 
 import math
 
+from mlstm_simple.model import (
+    BackendModeType,
+    ChunkwiseKernelType,
+    DtypeType,
+    SequenceKernelType,
+    StepKernelType,
+    mLSTMConfig,
+    round_up_to_next_multiple_of,
+)
+
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
-
-try:
-    from mlstm_simple.model import (
-        mLSTMConfig,
-        round_up_to_next_multiple_of,
-        ChunkwiseKernelType,
-        SequenceKernelType,
-        StepKernelType,
-        BackendModeType,
-        DtypeType,
-        WeightModeType,
-    )
-except ImportError:
-    # TODO This was only added for testing, since mlstm_torch_simple is not installable yet
-    import sys
-    import os
-
-    sys.path.append(os.path.split(os.path.abspath(__file__))[0] + "/../../../../mlstm_simple_torch")
-    from mlstm_simple.model import mLSTMConfig, round_up_to_next_multiple_of
-    # raise ImportError("Need mlstm_simple_torch to be installed")
 
 
 logger = logging.get_logger(__name__)

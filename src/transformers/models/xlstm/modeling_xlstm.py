@@ -22,27 +22,13 @@ from ...utils import (
 from .configuration_xlstm import xLSTMConfig
 
 
-try:
-    from mlstm_simple_torch.mlstm_simple.model import (
-        RMSNorm,
-        mLSTMBlock,
-        mLSTMConfig,
-        mLSTMStateType,
-        soft_cap,
-    )
-except:
-    import os
-    import sys
-
-    sys.path.append(os.path.split(os.path.abspath(__file__))[0] + "/../../../../mlstm_simple_torch")
-    from mlstm_simple.model import (
-        RMSNorm,
-        mLSTMBlock,
-        mLSTMConfig,
-        mLSTMStateType,
-        soft_cap,
-    )
-    # raise ImportError("Need mlstm_simple_torch to be installed")
+from mlstm_simple.model import (
+    mLSTMBlock,
+    RMSNorm,
+    mLSTMConfig,
+    mLSTMStateType,
+    soft_cap,
+)
 
 _CHECKPOINT_FOR_DOC = "NX-AI/xLSTM-7B"
 _CONFIG_FOR_DOC = "xLSTMConfig"
@@ -233,11 +219,8 @@ class xLSTMModel(xLSTMPreTrainedModel):
         self.post_init()
 
     def _init_weights(self, module):
-        if hasattr(module, "weight"):
-            nn.init.zeros_(module.weight)
-        else:
-            # print("Ignoring init", module)
-            pass
+        # Not implemented yet
+        pass
 
     def get_input_embeddings(self):
         return self.embeddings
@@ -401,7 +384,7 @@ class xLSTMForCausalLM(xLSTMPreTrainedModel, GenerationMixin):
                 input_ids = input_ids[:, -1:]
                 if inputs_embeds is not None:
                     inputs_embeds = inputs_embeds[:, -1:]
-        
+
         attention_mask = None
 
         if inputs_embeds is not None and cache_params is None:
